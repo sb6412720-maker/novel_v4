@@ -804,7 +804,7 @@ def _run_startup_migrations_sqlite(connection) -> dict[str, int]:
         )
         result["tables_added"] += 1
 
-if not _sqlite_table_exists(cursor, "author_follows"):
+    if not _sqlite_table_exists(cursor, "author_follows"):
         cursor.execute(
             """
             CREATE TABLE author_follows (
