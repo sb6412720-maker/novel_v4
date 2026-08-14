@@ -786,7 +786,25 @@ def _run_startup_migrations_sqlite(connection) -> dict[str, int]:
         )
         result["tables_added"] += 1
 
-    if not _sqlite_table_exists(cursor, "author_follows"):
+    
+    if not _sqlite_table_exists(cursor, "story_reports"):
+        cursor.execute(
+            """
+            CREATE TABLE story_reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                book_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                reason TEXT NOT NULL DEFAULT '',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(book_id, user_id),
+                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES app_users(id) ON DELETE CASCADE
+            )
+            """
+        )
+        result["tables_added"] += 1
+
+if not _sqlite_table_exists(cursor, "author_follows"):
         cursor.execute(
             """
             CREATE TABLE author_follows (
@@ -1222,6 +1240,24 @@ def run_startup_migrations() -> dict[str, int]:
                 INDEX idx_cc_chapter (chapter_id),
                 INDEX idx_cc_book (book_id),
                 INDEX idx_cc_user (user_id)
+            )
+            """
+        )
+        result["tables_added"] += 1
+
+    cursor.execute("SHOW TABLES LIKE 'story_reports'")
+    if cursor.fetchone() is None:
+        cursor.execute(
+            """
+            CREATE TABLE story_reports (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                book_id INT NOT NULL,
+                user_id INT NOT NULL,
+                reason TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_story_report (book_id, user_id),
+                INDEX (book_id),
+                INDEX (user_id)
             )
             """
         )

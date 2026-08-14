@@ -3849,5 +3849,18 @@ try:
 except Exception as _admin_tags_exc:
     LOGGER.warning("admin_tags routes not registered: %s", _admin_tags_exc)
 
-
+try:
+    from .story_reports import register_story_report_routes
+    register_story_report_routes(
+        app,
+        require_user=require_user,
+        require_admin=require_admin,
+        fetch_all=fetch_all,
+        execute_write=execute_write,
+        bump_content_version=bump_content_version,
+        LOGGER=LOGGER,
+        USE_SQLITE=USE_SQLITE,
+    )
+except Exception as _story_reports_exc:
+    LOGGER.warning("story_reports routes not registered: %s", _story_reports_exc)
 
