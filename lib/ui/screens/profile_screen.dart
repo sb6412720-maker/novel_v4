@@ -734,7 +734,126 @@ class _ProfileScreenState extends State<ProfileScreen>
                   cover = _s(rawCovers.first);
                 }
                 if (cover.isEmpty) cover = _s(list['cover_path']);
-                return SizedBox(
+                final listId = _asInt(list['id']);
+                return GestureDetector(
+                  onTap: listId > 0
+                      ? () async {
+                          try {
+                            final detail = await widget.apiService.fetchReadingListDetail(listId);
+                            if (!context.mounted) return;
+                            final items = detail['items'];
+                            final itemList = items is List
+                                ? List<Map<String, dynamic>>.from(items)
+                                : <Map<String, dynamic>>[];
+                            await showModalBottomSheet<void>(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.white,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                              ),
+                              builder: (ctx) {
+                                return DraggableScrollableSheet(
+                                  expand: false,
+                                  initialChildSize: 0.7,
+                                  maxChildSize: 0.95,
+                                  minChildSize: 0.4,
+                                  builder: (_, scrollCtrl) {
+                                    return Column(
+                                      children: [
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          width: 40, height: 4,
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.shade300,
+                                            borderRadius: BorderRadius.circular(2),
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.all(16),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  name.isEmpty ? 'Reading List' : name,
+                                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                                                ),
+                                              ),
+                                              Text('$count Stories', style: const TextStyle(color: muted, fontSize: 13)),
+                                            ],
+                                          ),
+                                        ),
+                                        const Divider(height: 1),
+                                        Expanded(
+                                          child: itemList.isEmpty
+                                              ? const Center(child: Text('No stories in this list yet.'))
+                                              : ListView.builder(
+                                                  controller: scrollCtrl,
+                                                  itemCount: itemList.length,
+                                                  itemBuilder: (_, i) {
+                                                    final it = itemList[i];
+                                                    final book = it['book'] is Map
+                                                        ? Map<String, dynamic>.from(it['book'] as Map)
+                                                        : it;
+                                                    final title = _s(book['title']);
+                                                    final author = _s(book['author']);
+                                                    final cPath = _s(book['cover_path'] ?? book['cover_url']);
+                                                    final bookId = _asInt(book['id'] ?? it['book_id']);
+                                                    return ListTile(
+                                                      leading: cPath.isNotEmpty
+                                                          ? ClipRRect(
+                                                              borderRadius: BorderRadius.circular(4),
+                                                              child: Image.network(
+                                                                widget.apiService.resolveAssetUrl(cPath),
+                                                                width: 40, height: 56, fit: BoxFit.cover,
+                                                                errorBuilder: (_, __, ___) => const Icon(Icons.menu_book),
+                                                              ),
+                                                            )
+                                                          : const Icon(Icons.menu_book),
+                                                      title: Text(title.isEmpty ? 'Story' : title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                                      subtitle: Text(author, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                                      onTap: bookId > 0
+                                                          ? () {
+                                                              Navigator.pop(ctx);
+                                                              Navigator.of(context).push(
+                                                                MaterialPageRoute<void>(
+                                                                  builder: (_) => StoryDetailScreen(
+                                                                    apiService: widget.apiService,
+                                                                    book: BookDetailModel(
+                                                                      id: bookId,
+                                                                      title: title,
+                                                                      author: author,
+                                                                      description: _s(book['description']),
+                                                                      statusText: _s(book['status_text']),
+                                                                      rating: (book['rating'] as num?)?.toDouble() ?? 0,
+                                                                      genre: _s(book['genre'] ?? book['primary_genre']),
+                                                                      cta: 'Read',
+                                                                      coverPath: cPath,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              );
+                                                            }
+                                                          : null,
+                                                    );
+                                                  },
+                                                ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+                              },
+                            );
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Could not open list: $e')),
+                            );
+                          }
+                        }
+                      : null,
+                  child: SizedBox(
                   width: 130,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -771,6 +890,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       ),
                     ],
                   ),
+                ),
                 );
               },
             ),

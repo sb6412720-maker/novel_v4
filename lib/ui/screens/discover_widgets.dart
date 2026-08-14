@@ -222,6 +222,12 @@ class _DynamicStoryRailState extends State<_DynamicStoryRail> {
           ],
         ),
         const SizedBox(height: 10),
+        if (widget.section.books.isEmpty)
+          const SizedBox(
+            height: 80,
+            child: Center(child: Text('No stories yet', style: TextStyle(color: Colors.grey))),
+          )
+        else
         SizedBox(
           height: 180,
           child: PageView.builder(
