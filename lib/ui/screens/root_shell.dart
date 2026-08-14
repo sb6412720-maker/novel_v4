@@ -54,16 +54,34 @@ class _RootShellState extends State<RootShell> {
   }
 
   Future<void> _bootstrapApp() async {
-    final session = await _authService.restoreSession();
+    AuthSession? session;
+    String? blockMessage;
+    try {
+      session = await _authService.restoreSession();
+    } on AuthBlockedException catch (e) {
+      session = null;
+      blockMessage = e.message;
+    } catch (_) {
+      session = null;
+    }
     if (!mounted) return;
     setState(() {
       _session = session;
-      // First launch / no session → login screen first (user can still browse after skip if offered)
       if (session == null) {
         _showLoginOverlay = true;
       }
     });
     await _loadBootstrap();
+    if (!mounted) return;
+    if (blockMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(blockMessage),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    }
   }
 
   Future<void> _loadBootstrap() async {
@@ -91,13 +109,27 @@ class _RootShellState extends State<RootShell> {
     await _loadBootstrap();
   }
 
-  Future<void> _continueLogin(String method, {String? email}) async {
+  Future<void> _continueLogin(
+    String method, {
+    String? email,
+    String? password,
+    String? mode,
+    String? displayName,
+  }) async {
     try {
-      final session = method == 'google'
-          ? await _authService.signInWithGoogle()
-          : method == 'email'
-              ? await _authService.signInWithEmail(email ?? '')
-              : await _authService.signInAsGuest();
+      final AuthSession session;
+      if (method == 'google') {
+        session = await _authService.signInWithGoogle();
+      } else if (method == 'email') {
+        session = await _authService.signInWithEmail(
+          email ?? '',
+          password: password ?? '',
+          mode: mode ?? 'login',
+          displayName: displayName,
+        );
+      } else {
+        session = await _authService.signInAsGuest();
+      }
       if (!mounted) return;
       setState(() {
         _session = session;
@@ -111,15 +143,36 @@ class _RootShellState extends State<RootShell> {
             session.isGoogle
                 ? 'Signed in as ${session.displayName}'
                 : session.isGuest
-                    ? 'Continuing as guest (read + limited personal features)'
+                    ? 'Continuing as guest (device-limited session)'
                     : 'Signed in with ${session.email}',
           ),
         ),
       );
+    } on AuthBlockedException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _session = null;
+        _showLoginOverlay = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 5),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
+      final msg = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sign-in failed: $e')),
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: msg.toLowerCase().contains('banned') ||
+                  msg.toLowerCase().contains('suspended')
+              ? Colors.red.shade700
+              : null,
+          duration: const Duration(seconds: 5),
+        ),
       );
     }
   }

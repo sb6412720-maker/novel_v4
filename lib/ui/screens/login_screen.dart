@@ -2,21 +2,50 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({
     super.key,
     required this.onContinue,
     this.onSkipAsReader,
   });
 
-  final Future<void> Function(String method, {String? email}) onContinue;
+  /// method: google | email | guest
+  /// For email, pass email, password, mode (login|register), optional displayName.
+  final Future<void> Function(
+    String method, {
+    String? email,
+    String? password,
+    String? mode,
+    String? displayName,
+  }) onContinue;
 
-  /// Pure read-only browse (no account at all). Discover only.
   final VoidCallback? onSkipAsReader;
 
-  Future<void> _openEmailPrompt(BuildContext context) async {
-    final controller = TextEditingController();
-    final email = await showModalBottomSheet<String>(
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  bool _busy = false;
+
+  Future<void> _run(Future<void> Function() action) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await action();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _openEmailAuth({required bool register}) async {
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    var obscure = true;
+
+    final result = await showModalBottomSheet<Map<String, String>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
@@ -24,52 +53,148 @@ class LoginScreen extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            20,
-            20,
-            MediaQuery.of(context).viewInsets.bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Continue with Email',
-                style: Theme.of(context).textTheme.headlineSmall,
+        return StatefulBuilder(
+          builder: (context, setModal) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                MediaQuery.of(context).viewInsets.bottom + 20,
               ),
-              const SizedBox(height: 10),
-              Text(
-                'Enter your email to open the app with a local session.',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 18),
-              TextField(
-                controller: controller,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(hintText: 'your@email.com'),
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () =>
-                      Navigator.of(context).pop(controller.text.trim()),
-                  child: const Text('Continue'),
+              child: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        register ? 'Create account' : 'Sign in with email',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        register
+                            ? 'Use a password (min 6 characters). This is required — email-only login is disabled for security.'
+                            : 'Enter the email and password for your account.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: AppTheme.muted,
+                            ),
+                      ),
+                      const SizedBox(height: 18),
+                      if (register) ...[
+                        TextFormField(
+                          controller: nameCtrl,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: const InputDecoration(
+                            labelText: 'Display name',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      TextFormField(
+                        controller: emailCtrl,
+                        keyboardType: TextInputType.emailAddress,
+                        autofillHints: const [AutofillHints.email],
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) {
+                          final s = (v ?? '').trim();
+                          if (s.isEmpty || !s.contains('@')) {
+                            return 'Enter a valid email';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: passCtrl,
+                        obscureText: obscure,
+                        autofillHints: [
+                          register
+                              ? AutofillHints.newPassword
+                              : AutofillHints.password,
+                        ],
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscure
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: () =>
+                                setModal(() => obscure = !obscure),
+                          ),
+                        ),
+                        validator: (v) {
+                          if ((v ?? '').length < 6) {
+                            return 'At least 6 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: FilledButton(
+                          onPressed: () {
+                            if (!(formKey.currentState?.validate() ?? false)) {
+                              return;
+                            }
+                            Navigator.of(context).pop({
+                              'email': emailCtrl.text.trim(),
+                              'password': passCtrl.text,
+                              'mode': register ? 'register' : 'login',
+                              'displayName': nameCtrl.text.trim(),
+                            });
+                          },
+                          child: Text(register ? 'Create account' : 'Sign in'),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Future.microtask(
+                            () => _openEmailAuth(register: !register),
+                          );
+                        },
+                        child: Text(
+                          register
+                              ? 'Already have an account? Sign in'
+                              : 'Need an account? Register',
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
 
-    controller.dispose();
-    if (email == null || email.isEmpty || !context.mounted) {
-      return;
-    }
-    await onContinue('email', email: email);
+    emailCtrl.dispose();
+    passCtrl.dispose();
+    nameCtrl.dispose();
+    if (result == null || !mounted) return;
+
+    await _run(
+      () => widget.onContinue(
+        'email',
+        email: result['email'],
+        password: result['password'],
+        mode: result['mode'],
+        displayName: result['displayName'],
+      ),
+    );
   }
 
   @override
@@ -95,10 +220,12 @@ class LoginScreen extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SizedBox(height: 64),
+                        const SizedBox(height: 48),
                         Text(
                           'Inkitt',
-                          style: Theme.of(context).textTheme.headlineLarge
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineLarge
                               ?.copyWith(
                                 fontSize: 54,
                                 fontFamily: 'serif',
@@ -110,42 +237,64 @@ class LoginScreen extends StatelessWidget {
                         Text(
                           'Discover Millions of Free Books',
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.titleMedium
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
                               ?.copyWith(color: AppTheme.muted),
                         ),
-                        const SizedBox(height: 52),
+                        const SizedBox(height: 40),
+                        if (_busy)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 16),
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
                         _LoginButton(
                           icon: Icons.g_mobiledata_rounded,
                           label: 'Continue with Google',
-                          onPressed: () => onContinue('google'),
+                          onPressed: _busy
+                              ? null
+                              : () => _run(() => widget.onContinue('google')),
                         ),
                         const SizedBox(height: 12),
                         _LoginButton(
                           icon: Icons.email_outlined,
-                          label: 'Continue with Email',
-                          onPressed: () => _openEmailPrompt(context),
+                          label: 'Sign in with Email',
+                          onPressed:
+                              _busy ? null : () => _openEmailAuth(register: false),
+                        ),
+                        const SizedBox(height: 12),
+                        _LoginButton(
+                          icon: Icons.person_add_alt_1_outlined,
+                          label: 'Create account with Email',
+                          onPressed:
+                              _busy ? null : () => _openEmailAuth(register: true),
                         ),
                         const SizedBox(height: 12),
                         _LoginButton(
                           icon: Icons.person_outline,
                           label: 'Continue as Guest',
-                          onPressed: () => onContinue('guest'),
+                          onPressed: _busy
+                              ? null
+                              : () => _run(() => widget.onContinue('guest')),
                         ),
-                        if (onSkipAsReader != null) ...[
+                        if (widget.onSkipAsReader != null) ...[
                           const SizedBox(height: 12),
                           TextButton(
-                            onPressed: onSkipAsReader,
+                            onPressed: _busy ? null : widget.onSkipAsReader,
                             child: const Text(
                               'Browse stories only (read-only, no account)',
                             ),
                           ),
                         ],
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 24),
                         Text(
-                          'Without an account you can read stories on Discover. '
-                          'Sign in to save progress, library, and write.',
+                          'Banned or suspended accounts cannot sign in. '
+                          'Each Google / email account is separate — '
+                          'moderation applies to that account.',
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodySmall,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppTheme.muted,
+                              ),
                         ),
                         const SizedBox(height: 12),
                         Text(
@@ -153,7 +302,6 @@ class LoginScreen extends StatelessWidget {
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
-                        const SizedBox(height: 24),
                       ],
                     ),
                   ),
@@ -176,7 +324,7 @@ class _LoginButton extends StatelessWidget {
 
   final IconData icon;
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -196,9 +344,10 @@ class _LoginButton extends StatelessWidget {
         icon: Icon(icon, size: 24),
         label: Text(
           label,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(color: const Color(0xFF525252)),
+          style: Theme.of(context)
+              .textTheme
+              .titleMedium
+              ?.copyWith(color: const Color(0xFF525252)),
         ),
       ),
     );
