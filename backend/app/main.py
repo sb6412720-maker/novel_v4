@@ -3826,5 +3826,18 @@ def list_user_activity(user_id: int):
     items.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
     return {"items": items[:40]}
 
+try:
+    from .admin_tags import register_admin_tag_routes
+    register_admin_tag_routes(
+        app,
+        require_admin=require_admin,
+        fetch_all=fetch_all,
+        execute_write=execute_write,
+        bump_content_version=bump_content_version,
+        LOGGER=LOGGER,
+    )
+except Exception as _admin_tags_exc:
+    LOGGER.warning("admin_tags routes not registered: %s", _admin_tags_exc)
+
 
 
