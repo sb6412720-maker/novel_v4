@@ -768,6 +768,24 @@ def _run_startup_migrations_sqlite(connection) -> dict[str, int]:
         )
         result["tables_added"] += 1
 
+    if not _sqlite_table_exists(cursor, "chapter_comments"):
+        cursor.execute(
+            """
+            CREATE TABLE chapter_comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chapter_id INTEGER NOT NULL,
+                book_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                body TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
+                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES app_users(id) ON DELETE CASCADE
+            )
+            """
+        )
+        result["tables_added"] += 1
+
     if not _sqlite_table_exists(cursor, "author_follows"):
         cursor.execute(
             """
@@ -1185,6 +1203,25 @@ def run_startup_migrations() -> dict[str, int]:
             "ALTER TABLE reading_lists ADD COLUMN user_id INT NULL AFTER id"
         )
         result["columns_added"] += 1
+
+    cursor.execute("SHOW TABLES LIKE 'chapter_comments'")
+    if cursor.fetchone() is None:
+        cursor.execute(
+            """
+            CREATE TABLE chapter_comments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                chapter_id INT NOT NULL,
+                book_id INT NOT NULL,
+                user_id INT NOT NULL,
+                body TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_cc_chapter (chapter_id),
+                INDEX idx_cc_book (book_id),
+                INDEX idx_cc_user (user_id)
+            )
+            """
+        )
+        result["tables_added"] += 1
 
     # Chat history table for the in-app support/contact chat.
     cursor.execute("SHOW TABLES LIKE 'chat_messages'")

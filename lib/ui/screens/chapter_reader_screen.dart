@@ -144,6 +144,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
       _chapterIndex++;
       _applyChapter(_chapters[_chapterIndex]);
     });
+    // Scroll to top of the new chapter
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(0);
@@ -415,6 +416,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     );
   }
 
+  /// Split chapter content roughly in half for mid-chapter ad placement.
   List<String> _contentParts() {
     final text = _chapterContent.trim();
     if (text.isEmpty) return ['', ''];
@@ -486,6 +488,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
               controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
               children: [
+                // Chapter cover (book cover at start of every chapter)
                 if (coverUrl != null) ...[
                   const SizedBox(height: 8),
                   Center(
@@ -547,6 +550,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                // First half of content
                 Text(
                   parts[0].isEmpty && parts[1].isEmpty
                       ? 'This chapter has not been written yet.'
@@ -557,10 +561,12 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                     height: 1.75,
                   ),
                 ),
+                // Mid-chapter advertisement
                 if (parts[0].isNotEmpty && parts[1].isNotEmpty)
                   _buildAdBanner(
                     label: 'Discover more stories you\'ll love',
                   ),
+                // Second half of content
                 if (parts[1].isNotEmpty)
                   Text(
                     parts[1],
@@ -571,6 +577,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                     ),
                   ),
                 const SizedBox(height: 24),
+                // Ad near Next Chapter button
                 if (hasNext)
                   _buildAdBanner(
                     label: 'Continue reading more free stories',
@@ -612,12 +619,20 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.center,
-                  children: _reactionOptions.map((opt) {
+                const SizedBox(height: 16),
+                // Inkitt-style reaction grid (3 columns, compact)
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _reactionOptions.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 14,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 0.92,
+                  ),
+                  itemBuilder: (context, index) {
+                    final opt = _reactionOptions[index];
                     final emoji = opt[0];
                     final label = opt[1];
                     final selected = _selectedReactions.contains(label);
@@ -631,45 +646,66 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                           }
                         });
                       },
-                      child: SizedBox(
-                        width: 88,
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: selected
-                                    ? const Color(0xFFE8F0FE)
-                                    : (_theme == _ReaderTheme.nightowl
-                                        ? Colors.white12
-                                        : Colors.grey.shade100),
-                                shape: BoxShape.circle,
-                                border: selected
-                                    ? Border.all(
-                                        color: const Color(0xFF1A73E8),
-                                        width: 1.5,
-                                      )
-                                    : null,
-                              ),
-                              child: Text(
-                                emoji,
-                                style: const TextStyle(fontSize: 22),
-                              ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? const Color(0xFFE8F0FE)
+                                  : (_theme == _ReaderTheme.nightowl
+                                      ? Colors.white12
+                                      : const Color(0xFFF3F4F6)),
+                              shape: BoxShape.circle,
+                              border: selected
+                                  ? Border.all(
+                                      color: const Color(0xFF1A73E8),
+                                      width: 2,
+                                    )
+                                  : Border.all(
+                                      color: _theme == _ReaderTheme.nightowl
+                                          ? Colors.white24
+                                          : const Color(0xFFE5E7EB),
+                                    ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              label,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: _muted, fontSize: 11),
+                            child: Text(
+                              emoji,
+                              style: const TextStyle(fontSize: 24),
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            label,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: selected
+                                  ? const Color(0xFF1A73E8)
+                                  : _muted,
+                              fontSize: 11,
+                              fontWeight: selected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                        ],
                       ),
                     );
-                  }).toList(),
+                  },
                 ),
+                if (_selectedReactions.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Text(
+                      '${_selectedReactions.length} reaction${_selectedReactions.length == 1 ? '' : 's'} selected',
+                      style: TextStyle(color: _muted, fontSize: 12),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 40),
               ],
             ),
@@ -697,9 +733,24 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _themeChip('White', _ReaderTheme.white, Colors.white, Colors.black),
-              _themeChip('Eggshell', _ReaderTheme.eggshell, const Color(0xFFF5F0E6), Colors.black87),
-              _themeChip('Nightowl', _ReaderTheme.nightowl, const Color(0xFF1A1A1A), Colors.white),
+              _themeChip(
+                'White',
+                _ReaderTheme.white,
+                Colors.white,
+                Colors.black,
+              ),
+              _themeChip(
+                'Eggshell',
+                _ReaderTheme.eggshell,
+                const Color(0xFFF5F0E6),
+                Colors.black87,
+              ),
+              _themeChip(
+                'Nightowl',
+                _ReaderTheme.nightowl,
+                const Color(0xFF1A1A1A),
+                Colors.white,
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -725,7 +776,12 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     );
   }
 
-  Widget _themeChip(String label, _ReaderTheme value, Color bg, Color fg) {
+  Widget _themeChip(
+    String label,
+    _ReaderTheme value,
+    Color bg,
+    Color fg,
+  ) {
     final selected = _theme == value;
     return GestureDetector(
       onTap: () => setState(() => _theme = value),
@@ -739,17 +795,366 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
               color: bg,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: selected ? const Color(0xFFE85D4C) : Colors.grey.shade400,
+                color:
+                    selected ? const Color(0xFFE85D4C) : Colors.grey.shade400,
                 width: selected ? 2 : 1,
               ),
             ),
-            child: Text('A', style: TextStyle(color: fg, fontWeight: FontWeight.w700)),
+            child: Text(
+              'A',
+              style: TextStyle(color: fg, fontWeight: FontWeight.w700),
+            ),
           ),
           const SizedBox(height: 4),
           Text(label, style: TextStyle(color: _muted, fontSize: 11)),
         ],
       ),
     );
+  }
+
+  String _relativeTime(String raw) {
+    if (raw.isEmpty) return '';
+    final dt = DateTime.tryParse(raw);
+    if (dt == null) return raw;
+    final diff = DateTime.now().toUtc().difference(dt.toUtc());
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${dt.month}/${dt.day}';
+  }
+
+  Future<void> _openCommentsSheet() async {
+    final bookId = widget.bookId;
+    if (bookId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Open a published story to view comments')),
+      );
+      return;
+    }
+
+    final controller = TextEditingController();
+    var comments = <Map<String, dynamic>>[];
+    var loading = true;
+    var posting = false;
+    String? error;
+
+    Future<void> loadComments(void Function(void Function()) setModal) async {
+      setModal(() {
+        loading = true;
+        error = null;
+      });
+      try {
+        final items = await widget.apiService.fetchChapterComments(
+          bookId: bookId,
+          chapterNumber: _chapterNumber,
+        );
+        setModal(() {
+          comments = items;
+          loading = false;
+        });
+      } catch (e) {
+        setModal(() {
+          loading = false;
+          error = 'Could not load comments';
+        });
+      }
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        var startedLoad = false;
+        return StatefulBuilder(
+          builder: (ctx, setModal) {
+            if (!startedLoad) {
+              startedLoad = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                loadComments(setModal);
+              });
+            }
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              ),
+              child: DraggableScrollableSheet(
+                expand: false,
+                initialChildSize: 0.65,
+                maxChildSize: 0.92,
+                minChildSize: 0.4,
+                builder: (_, scrollCtrl) {
+                  return Column(
+                    children: [
+                      const SizedBox(height: 8),
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                loading
+                                    ? 'Comments'
+                                    : 'Comments (${comments.length})',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 17,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.refresh, size: 20),
+                              onPressed: posting
+                                  ? null
+                                  : () => loadComments(setModal),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.pop(ctx),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      Expanded(
+                        child: loading
+                            ? const Center(child: CircularProgressIndicator())
+                            : error != null
+                                ? Center(
+                                    child: Text(
+                                      error!,
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  )
+                                : comments.isEmpty
+                                    ? Center(
+                                        child: Text(
+                                          'No comments yet — be the first!',
+                                          style: TextStyle(
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      )
+                                    : ListView.separated(
+                                        controller: scrollCtrl,
+                                        padding: const EdgeInsets.fromLTRB(
+                                          16, 12, 16, 12,
+                                        ),
+                                        itemCount: comments.length,
+                                        separatorBuilder: (_, __) =>
+                                            const SizedBox(height: 16),
+                                        itemBuilder: (_, i) {
+                                          final c = comments[i];
+                                          final name = (c['display_name'] ??
+                                                  c['username'] ??
+                                                  'Reader')
+                                              .toString();
+                                          final body =
+                                              (c['body'] ?? '').toString();
+                                          final when = _relativeTime(
+                                            (c['created_at'] ?? '').toString(),
+                                          );
+                                          final photo =
+                                              (c['photo_url'] ?? '').toString();
+                                          final letter = name.isNotEmpty
+                                              ? name[0].toUpperCase()
+                                              : 'R';
+                                          return Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              CircleAvatar(
+                                                radius: 18,
+                                                backgroundColor:
+                                                    const Color(0xFFE8EEF9),
+                                                backgroundImage: photo.isNotEmpty
+                                                    ? NetworkImage(
+                                                        widget.apiService
+                                                            .resolveAssetUrl(
+                                                          photo,
+                                                        ),
+                                                      )
+                                                    : null,
+                                                child: photo.isEmpty
+                                                    ? Text(
+                                                        letter,
+                                                        style: const TextStyle(
+                                                          color: Color(
+                                                            0xFF1A73E8,
+                                                          ),
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      )
+                                                    : null,
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Flexible(
+                                                          child: Text(
+                                                            name,
+                                                            style:
+                                                                const TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              fontSize: 13,
+                                                            ),
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ),
+                                                        if (when.isNotEmpty) ...[
+                                                          const SizedBox(
+                                                            width: 8,
+                                                          ),
+                                                          Text(
+                                                            when,
+                                                            style: TextStyle(
+                                                              color: Colors
+                                                                  .grey
+                                                                  .shade600,
+                                                              fontSize: 11,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      body,
+                                                      style: const TextStyle(
+                                                        fontSize: 14,
+                                                        height: 1.4,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                      ),
+                      const Divider(height: 1),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: controller,
+                                enabled: !posting,
+                                decoration: InputDecoration(
+                                  hintText: 'Add a comment…',
+                                  filled: true,
+                                  fillColor: const Color(0xFFF3F4F6),
+                                  contentPadding:
+                                      const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 10,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                                onSubmitted: posting
+                                    ? null
+                                    : (_) async {
+                                        // handled by send button path below
+                                      },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: posting
+                                  ? null
+                                  : () async {
+                                      final text = controller.text.trim();
+                                      if (text.isEmpty) return;
+                                      setModal(() => posting = true);
+                                      try {
+                                        final item = await widget.apiService
+                                            .postChapterComment(
+                                          bookId: bookId,
+                                          chapterNumber: _chapterNumber,
+                                          body: text,
+                                        );
+                                        controller.clear();
+                                        setModal(() {
+                                          comments = [item, ...comments];
+                                          posting = false;
+                                        });
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Comment posted'),
+                                            ),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        setModal(() => posting = false);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Could not post: $e',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                              icon: posting
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.send_rounded,
+                                      color: Color(0xFF1A73E8),
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
+    controller.dispose();
   }
 
   Widget _buildBottomBar() {
@@ -769,7 +1174,8 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
             _barItem(
               icon: Icons.text_fields,
               label: 'Theme',
-              onTap: () => setState(() => _showThemePanel = !_showThemePanel),
+              onTap: () =>
+                  setState(() => _showThemePanel = !_showThemePanel),
             ),
             _barItem(
               icon: _liked ? Icons.favorite : Icons.favorite_border,
@@ -780,14 +1186,18 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
             _barItem(
               icon: Icons.chat_bubble_outline,
               label: 'Comments',
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Comments will appear here when posted')),
-                );
-              },
+              onTap: _openCommentsSheet,
             ),
-            _barItem(icon: Icons.ios_share, label: 'Share', onTap: _share),
-            _barItem(icon: Icons.menu, label: 'Chapter', onTap: _openChapterList),
+            _barItem(
+              icon: Icons.ios_share,
+              label: 'Share',
+              onTap: _share,
+            ),
+            _barItem(
+              icon: Icons.menu,
+              label: 'Chapter',
+              onTap: _openChapterList,
+            ),
           ],
         ),
       ),
@@ -810,7 +1220,10 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
           children: [
             Icon(icon, size: 22, color: color ?? _muted),
             const SizedBox(height: 2),
-            Text(label, style: TextStyle(color: color ?? _muted, fontSize: 10)),
+            Text(
+              label,
+              style: TextStyle(color: color ?? _muted, fontSize: 10),
+            ),
           ],
         ),
       ),

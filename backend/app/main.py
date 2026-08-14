@@ -103,6 +103,10 @@ class ReviewCreateRequest(BaseModel):
     comment: str = ""
 
 
+class ChapterCommentCreateRequest(BaseModel):
+    body: str
+
+
 class ChapterCreateRequest(BaseModel):
     title: str
     content: str
@@ -2415,6 +2419,164 @@ def create_book_review(
     bump_content_version()
     return {"ok": True}
 
+
+def _ensure_chapter_comments_table() -> None:
+    """Create chapter_comments on SQLite/MySQL if missing."""
+    try:
+        if USE_SQLITE:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS chapter_comments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    chapter_id INTEGER NOT NULL,
+                    book_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    body TEXT NOT NULL,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+                (),
+            )
+        else:
+            execute_write(
+                """
+                CREATE TABLE IF NOT EXISTS chapter_comments (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    chapter_id INT NOT NULL,
+                    book_id INT NOT NULL,
+                    user_id INT NOT NULL,
+                    body TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX (chapter_id),
+                    INDEX (book_id),
+                    INDEX (user_id)
+                )
+                """,
+                (),
+            )
+    except Exception as exc:
+        LOGGER.warning("chapter_comments ensure failed: %s", exc)
+
+
+def _resolve_chapter_id(book_id: int, chapter_number: int) -> int | None:
+    rows = fetch_all(
+        "SELECT id FROM chapters WHERE story_id=%s AND chapter_number=%s ORDER BY id LIMIT 1",
+        (book_id, chapter_number),
+    )
+    if not rows:
+        return None
+    return int(rows[0]["id"])
+
+
+def _serialize_comment_row(row: dict[str, Any]) -> dict[str, Any]:
+    name = (
+        row.get("display_name")
+        or row.get("username")
+        or "Reader"
+    )
+    avatar = row.get("photo_url") or row.get("avatar_url") or ""
+    created = row.get("created_at")
+    return {
+        "id": row["id"],
+        "chapter_id": row.get("chapter_id"),
+        "book_id": row.get("book_id"),
+        "user_id": row.get("user_id"),
+        "body": row.get("body") or "",
+        "display_name": name,
+        "username": row.get("username") or "",
+        "photo_url": avatar,
+        "created_at": str(created) if created is not None else "",
+    }
+
+
+@app.get("/api/books/{book_id}/chapters/{chapter_number}/comments")
+def list_chapter_comments(book_id: int, chapter_number: int):
+    """Public list of comments for a chapter (by book + chapter number)."""
+    _ensure_chapter_comments_table()
+    chapter_id = _resolve_chapter_id(book_id, chapter_number)
+    if chapter_id is None:
+        return {"items": []}
+    rows = fetch_all(
+        """
+        SELECT c.id, c.chapter_id, c.book_id, c.user_id, c.body, c.created_at,
+               u.display_name, u.username, u.photo_url
+        FROM chapter_comments c
+        LEFT JOIN app_users u ON u.id = c.user_id
+        WHERE c.chapter_id = %s
+        ORDER BY c.created_at DESC, c.id DESC
+        """,
+        (chapter_id,),
+    )
+    return {"items": [_serialize_comment_row(r) for r in rows]}
+
+
+@app.post("/api/books/{book_id}/chapters/{chapter_number}/comments")
+def create_chapter_comment(
+    book_id: int,
+    chapter_number: int,
+    payload: ChapterCommentCreateRequest,
+    user: dict[str, Any] = Depends(require_user),
+):
+    """Post a comment on a chapter. Requires auth."""
+    _ensure_chapter_comments_table()
+    body = (payload.body or "").strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="Comment cannot be empty")
+    if len(body) > 4000:
+        raise HTTPException(status_code=400, detail="Comment is too long")
+    chapter_id = _resolve_chapter_id(book_id, chapter_number)
+    if chapter_id is None:
+        # Auto-create a stub chapter row so comments can still attach when
+        # the reader opened content without a DB chapter id.
+        execute_write(
+            """
+            INSERT INTO chapters (story_id, chapter_number, title, content, sort_order)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (book_id, chapter_number, f"Chapter {chapter_number}", "", chapter_number),
+        )
+        chapter_id = _resolve_chapter_id(book_id, chapter_number)
+        if chapter_id is None:
+            raise HTTPException(status_code=404, detail="Chapter not found")
+    execute_write(
+        """
+        INSERT INTO chapter_comments (chapter_id, book_id, user_id, body)
+        VALUES (%s, %s, %s, %s)
+        """,
+        (chapter_id, book_id, user["user_id"], body),
+    )
+    bump_content_version()
+    rows = fetch_all(
+        """
+        SELECT c.id, c.chapter_id, c.book_id, c.user_id, c.body, c.created_at,
+               u.display_name, u.username, u.photo_url
+        FROM chapter_comments c
+        LEFT JOIN app_users u ON u.id = c.user_id
+        WHERE c.chapter_id = %s AND c.user_id = %s
+        ORDER BY c.id DESC
+        LIMIT 1
+        """,
+        (chapter_id, user["user_id"]),
+    )
+    item = _serialize_comment_row(rows[0]) if rows else {"ok": True, "body": body}
+    return {"ok": True, "item": item}
+
+
+@app.get("/api/chapters/{chapter_id}/comments")
+def list_comments_by_chapter_id(chapter_id: int):
+    _ensure_chapter_comments_table()
+    rows = fetch_all(
+        """
+        SELECT c.id, c.chapter_id, c.book_id, c.user_id, c.body, c.created_at,
+               u.display_name, u.username, u.photo_url
+        FROM chapter_comments c
+        LEFT JOIN app_users u ON u.id = c.user_id
+        WHERE c.chapter_id = %s
+        ORDER BY c.created_at DESC, c.id DESC
+        """,
+        (chapter_id,),
+    )
+    return {"items": [_serialize_comment_row(r) for r in rows]}
 
 
 def _ensure_author_follows_columns() -> None:

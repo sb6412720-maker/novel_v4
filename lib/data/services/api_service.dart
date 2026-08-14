@@ -593,6 +593,42 @@ class ApiService {
     _ensureSuccessResponse(response);
   }
 
+  /// Live chapter comments (Inkitt reader bottom-sheet).
+  Future<List<Map<String, dynamic>>> fetchChapterComments({
+    required int bookId,
+    required int chapterNumber,
+  }) async {
+    try {
+      final response = await _get(
+        '/api/books/$bookId/chapters/$chapterNumber/comments',
+      );
+      if (response.statusCode != 200) return const <Map<String, dynamic>>[];
+      final payload = jsonDecode(response.body) as Map<String, dynamic>;
+      return List<Map<String, dynamic>>.from(
+        (payload['items'] as List<dynamic>? ?? const <dynamic>[]),
+      );
+    } catch (_) {
+      return const <Map<String, dynamic>>[];
+    }
+  }
+
+  Future<Map<String, dynamic>> postChapterComment({
+    required int bookId,
+    required int chapterNumber,
+    required String body,
+  }) async {
+    final response = await _post(
+      '/api/books/$bookId/chapters/$chapterNumber/comments',
+      {'body': body},
+      timeout: const Duration(seconds: 8),
+    );
+    _ensureSuccessResponse(response);
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    if (payload['item'] is Map) {
+      return Map<String, dynamic>.from(payload['item'] as Map);
+    }
+    return payload;
+  }
 
   Future<List<Map<String, dynamic>>> fetchUserStories(int userId) async {
     try {
