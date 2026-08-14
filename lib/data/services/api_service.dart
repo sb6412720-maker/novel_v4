@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -682,7 +683,7 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
-    Future<Map<String, dynamic>> followAuthor(int authorId) async {
+  Future<Map<String, dynamic>> followAuthor(int authorId) async {
     final response = await _post(
       '/api/authors/$authorId/follow',
       const <String, dynamic>{},
