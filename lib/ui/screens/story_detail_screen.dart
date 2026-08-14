@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/models/app_bootstrap.dart';
 import '../../data/services/api_service.dart';
+import 'profile_screen.dart';
 import 'chapter_reader_screen.dart';
 
 /// Story detail page modeled after the Inkitt video:
@@ -872,14 +873,79 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                   final author = r['display_name'] as String? ??
                       r['author'] as String? ??
                       'Reader';
+                  final avatarRaw = (r['avatar_url'] ??
+                          r['photo_url'] ??
+                          r['user_avatar'] ??
+                          '')
+                      .toString();
+                  final avatarUrl = avatarRaw.isEmpty
+                      ? ''
+                      : widget.apiService.resolveAssetUrl(avatarRaw);
+                  final reviewerId = (r['user_id'] as num?)?.toInt() ??
+                      (r['author_id'] as num?)?.toInt();
                   return ListTile(
                     contentPadding:
                         const EdgeInsets.symmetric(horizontal: 20),
+                    leading: CircleAvatar(
+                      radius: 20,
+                      backgroundColor: Colors.grey.shade200,
+                      backgroundImage: avatarUrl.isNotEmpty
+                          ? NetworkImage(avatarUrl)
+                          : null,
+                      child: avatarUrl.isEmpty
+                          ? Text(
+                              author.isNotEmpty
+                                  ? author[0].toUpperCase()
+                                  : '?',
+                              style: TextStyle(
+                                color: Colors.grey.shade700,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            )
+                          : null,
+                    ),
                     title: Row(
                       children: [
-                        Text(
-                          author,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        Flexible(
+                          child: GestureDetector(
+                            onTap: reviewerId != null && reviewerId > 0
+                                ? () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => ProfileScreen(
+                                          apiService: widget.apiService,
+                                          viewingUserId: reviewerId,
+                                          achievements: const [],
+                                          profile: ProfileModel(
+                                            id: reviewerId,
+                                            displayName: author,
+                                            username: author
+                                                .toLowerCase()
+                                                .replaceAll(' ', ''),
+                                            photoUrl: avatarRaw,
+                                            coverUrl: '',
+                                            following: 0,
+                                            followers: 0,
+                                            blocked: 0,
+                                            chaptersRead: 0,
+                                            socialKarma: 0,
+                                            dayStreak: 0,
+                                            readingLists: const [],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                : null,
+                            child: Text(
+                              author,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.underline,
+                                decorationColor: Colors.transparent,
+                              ),
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 8),
                         ...List.generate(
