@@ -380,20 +380,6 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                             items: _genres.map((g) => DropdownMenuItem(value: g, child: Text(g, style: const TextStyle(fontSize: 15)))).toList(),
                             onChanged: (v) => setState(() => _selectedGenre = v),
                           ),
-
-          _field(
-            'CONTENT WARNINGS (optional)',
-            TextField(
-              controller: _warningsController,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                hintText: 'e.g. violence, strong language, drug use',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-          ),
-
                         ),
                       ),
                       TextButton.icon(
@@ -404,6 +390,20 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                       ),
                     ],
                   ),
+          ),
+          const Divider(height: 1),
+          _field(
+            'CONTENT WARNINGS (optional)',
+            TextField(
+              controller: _warningsController,
+              maxLines: 2,
+              style: const TextStyle(fontSize: 15),
+              decoration: const InputDecoration(
+                hintText: 'e.g. violence, strong language, drug use',
+                hintStyle: TextStyle(color: AppTheme.muted),
+                border: InputBorder.none,
+              ),
+            ),
           ),
           const Divider(height: 1),
           const SizedBox(height: 16),
