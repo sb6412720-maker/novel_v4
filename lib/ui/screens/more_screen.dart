@@ -4,7 +4,9 @@ import '../../core/theme/app_theme.dart';
 import '../../data/models/app_bootstrap.dart';
 import '../../data/services/api_service.dart';
 import '../../data/services/auth_service.dart';
+import 'achievements_screen.dart';
 import 'profile_screen.dart';
+import 'reading_stats_screen.dart';
 import 'support_screen.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -32,7 +34,10 @@ class MoreScreen extends StatelessWidget {
           return _Section(
             section: section,
             onTap: (item) async {
-              if (item.route == 'profile') {
+              final routeName = item.route.toLowerCase();
+              final label = item.label.toLowerCase();
+
+              if (item.route == 'profile' || routeName.contains('profile')) {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => ProfileScreen(
@@ -45,10 +50,35 @@ class MoreScreen extends StatelessWidget {
                 return;
               }
 
-              final routeName = item.route.toLowerCase();
-              final label = item.label.toLowerCase();
               if (routeName.contains('logout') || label.contains('logout')) {
                 await onSignOut();
+                return;
+              }
+
+              if (routeName.contains('achievement') ||
+                  label.contains('achievement')) {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => AchievementsScreen(
+                      achievements: data.achievements,
+                      profile: data.profile,
+                    ),
+                  ),
+                );
+                return;
+              }
+
+              if (routeName.contains('stat') ||
+                  routeName.contains('reading') ||
+                  label.contains('reading stat') ||
+                  label.contains('stats')) {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ReadingStatsScreen(
+                      profile: data.profile,
+                    ),
+                  ),
+                );
                 return;
               }
 
@@ -61,6 +91,19 @@ class MoreScreen extends StatelessWidget {
                     builder: (_) => SupportScreen(
                       title: item.label,
                       apiService: apiService,
+                    ),
+                  ),
+                );
+                return;
+              }
+
+              // Fallback: try achievements / stats by common labels
+              if (label.contains('badge') || label.contains('trophy')) {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => AchievementsScreen(
+                      achievements: data.achievements,
+                      profile: data.profile,
                     ),
                   ),
                 );
