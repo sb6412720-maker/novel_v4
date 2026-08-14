@@ -87,6 +87,7 @@ class StoryCreateRequest(BaseModel):
     genre: str
     cover_path: str = ""
     tags: list[str] = []
+    content_warnings: str = ""
 
 
 class StoryUpdateRequest(BaseModel):
@@ -96,6 +97,7 @@ class StoryUpdateRequest(BaseModel):
     genre: str | None = None
     cover_path: str | None = None
     tags: list[str] | None = None
+    content_warnings: str | None = None
 
 
 class ReviewCreateRequest(BaseModel):
@@ -1931,7 +1933,7 @@ def delete_reading_list(
 def get_writer_stories(user: dict[str, Any] = Depends(require_user)):
     rows = fetch_all(
         """
-        SELECT id, title, author, description, genre, status_text, cover_path, accent_hex
+        SELECT id, title, author, description, genre, status_text, cover_path, accent_hex, content_warnings
         FROM books
         WHERE user_id = %s
         ORDER BY id DESC
@@ -2204,13 +2206,14 @@ def create_writer_story(
     user: dict[str, Any] = Depends(require_user),
 ):
     cover = _normalize_cover_path(payload.cover_path)
+    warnings = (payload.content_warnings or "").strip()
     story_id, _ = execute_write(
         """
         INSERT INTO books (
             user_id, title, author, description, cover_path, accent_hex, section_name,
-            status_text, rating, genre, primary_genre, cta_label, sort_order
+            status_text, rating, genre, primary_genre, cta_label, sort_order, content_warnings
         )
-        VALUES (%s, %s, %s, %s, %s, '#557E7A', 'recently_updated', 'Draft', 0.0, %s, %s, 'Read now', 999)
+        VALUES (%s, %s, %s, %s, %s, '#557E7A', 'recently_updated', 'Draft', 0.0, %s, %s, 'Read now', 999, %s)
         """,
         (
             user["user_id"],
@@ -2220,6 +2223,7 @@ def create_writer_story(
             cover,
             payload.genre,
             payload.genre,
+            warnings,
         ),
     )
     _set_story_tags(story_id, payload.tags)
@@ -2251,6 +2255,11 @@ def update_writer_story(
         raise HTTPException(status_code=404, detail="Story not found")
 
     current = rows[0]
+    next_warnings = (
+        payload.content_warnings.strip()
+        if payload.content_warnings is not None
+        else (_row_get(current, "content_warnings") or "")
+    )
     next_cover = (
         _normalize_cover_path(payload.cover_path)
         if payload.cover_path is not None
@@ -2259,7 +2268,7 @@ def update_writer_story(
     _, affected = execute_write(
         """
         UPDATE books
-        SET title=%s, author=%s, description=%s, genre=%s, primary_genre=%s, cover_path=%s, user_id=%s
+        SET title=%s, author=%s, description=%s, genre=%s, primary_genre=%s, cover_path=%s, user_id=%s, content_warnings=%s
         WHERE id=%s
         """,
         (
@@ -2270,6 +2279,7 @@ def update_writer_story(
             payload.genre or _row_get(current, "primary_genre") or _row_get(current, "genre"),
             next_cover,
             user["user_id"],
+            next_warnings,
             story_id,
         ),
     )
@@ -2286,7 +2296,7 @@ def update_writer_story(
 @app.get("/api/write/stories/{story_id}")
 def get_writer_story(story_id: int):
     rows = fetch_all(
-        "SELECT id, title, author, description, genre, cover_path, accent_hex, status_text, rating FROM books WHERE id=%s",
+        "SELECT id, title, author, description, genre, cover_path, accent_hex, status_text, rating, content_warnings FROM books WHERE id=%s",
         (story_id,),
     )
     if not rows:
@@ -2298,7 +2308,7 @@ def get_writer_story(story_id: int):
 @app.get("/api/books/{book_id}")
 def get_public_book(book_id: int):
     rows = fetch_all(
-        "SELECT id, user_id, title, author, description, genre, cover_path, accent_hex, status_text, rating FROM books WHERE id=%s",
+        "SELECT id, user_id, title, author, description, genre, cover_path, accent_hex, status_text, rating, content_warnings FROM books WHERE id=%s",
         (book_id,),
     )
     if not rows:

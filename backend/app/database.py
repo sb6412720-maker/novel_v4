@@ -837,6 +837,10 @@ def _run_startup_migrations_sqlite(connection) -> dict[str, int]:
         cursor.execute("ALTER TABLE books ADD COLUMN is_completed INTEGER NOT NULL DEFAULT 0")
         result["columns_added"] += 1
 
+    if not _sqlite_column_exists(cursor, "books", "content_warnings"):
+        cursor.execute("ALTER TABLE books ADD COLUMN content_warnings TEXT NOT NULL DEFAULT ''")
+        result["columns_added"] += 1
+
     cursor.execute("UPDATE books SET primary_genre = genre WHERE primary_genre = '' OR primary_genre IS NULL")
 
     cursor.execute("SELECT id, cover_path FROM books WHERE cover_path LIKE ?", ("story_card_images/%",))
@@ -1255,6 +1259,7 @@ def run_startup_migrations() -> dict[str, int]:
         "primary_genre": "ALTER TABLE books ADD COLUMN primary_genre VARCHAR(80) NOT NULL DEFAULT ''",
         "secondary_genre": "ALTER TABLE books ADD COLUMN secondary_genre VARCHAR(80) NOT NULL DEFAULT ''",
         "is_completed": "ALTER TABLE books ADD COLUMN is_completed TINYINT(1) NOT NULL DEFAULT 0",
+        "content_warnings": "ALTER TABLE books ADD COLUMN content_warnings TEXT NOT NULL DEFAULT ''",
     }
 
     for column, alter_sql in book_columns.items():

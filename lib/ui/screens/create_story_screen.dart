@@ -26,6 +26,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   final _summaryController = TextEditingController();
   final _authorController = TextEditingController();
   final _tagInputController = TextEditingController();
+  final _warningsController = TextEditingController();
   final _tagFocus = FocusNode();
   final ImagePicker _imagePicker = ImagePicker();
   bool _saving = false;
@@ -52,6 +53,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     if (_isEditing) {
       _titleController.text = widget.story!['title']?.toString() ?? '';
       _summaryController.text = widget.story!['description']?.toString() ?? '';
+      _warningsController.text = (widget.story!['content_warnings'] ?? widget.story!['contentWarnings'] ?? '').toString();
       final g = (widget.story!['genre'] ?? widget.story!['primary_genre'] ?? '').toString().trim();
       if (g.isNotEmpty) {
         _selectedGenre = g;
@@ -213,6 +215,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   void dispose() {
     _titleController.dispose();
     _summaryController.dispose();
+    _warningsController.dispose();
     _authorController.dispose();
     _tagInputController.dispose();
     _tagFocus.dispose();
@@ -230,11 +233,13 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     }
     setState(() => _saving = true);
     try {
+      final warnings = _warningsController.text.trim();
       final payload = {
         'title': title,
         'description': summary,
         'author': author.isEmpty ? 'Author' : author,
         'genre': genre,
+        'content_warnings': warnings,
         'tags': List<String>.from(_selectedTags.take(3)),
         if (_coverPath.isNotEmpty) 'cover_path': _coverPath,
         if (publish) 'status_text': 'Published',
@@ -375,6 +380,20 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                             items: _genres.map((g) => DropdownMenuItem(value: g, child: Text(g, style: const TextStyle(fontSize: 15)))).toList(),
                             onChanged: (v) => setState(() => _selectedGenre = v),
                           ),
+
+          _field(
+            'CONTENT WARNINGS (optional)',
+            TextField(
+              controller: _warningsController,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                hintText: 'e.g. violence, strong language, drug use',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+          ),
+
                         ),
                       ),
                       TextButton.icon(
