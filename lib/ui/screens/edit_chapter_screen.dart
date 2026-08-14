@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -751,5 +751,4 @@ class _ToolbarButton extends StatelessWidget {
     );
   }
 }
-=======
->>>>>>> 3fc1c4ea490c87f4c36537bb0a09ebf57967affb
+

@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -870,5 +870,4 @@ class _FollowerBars extends StatelessWidget {
     );
   }
 }
-=======
->>>>>>> 3fc1c4ea490c87f4c36537bb0a09ebf57967affb
+

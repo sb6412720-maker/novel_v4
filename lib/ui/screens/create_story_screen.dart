@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -500,6 +500,3 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     );
   }
 }
-=======
-PLACEHOLDER
->>>>>>> 3fc1c4ea490c87f4c36537bb0a09ebf57967affb

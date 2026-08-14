@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -863,5 +863,4 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     );
   }
 }
-=======
->>>>>>> 3fc1c4ea490c87f4c36537bb0a09ebf57967affb
+
