@@ -141,6 +141,8 @@ class BookDetailModel {
     this.coverPath = '',
     this.tags = const [],
     this.authorUserId,
+    this.contentWarnings = '',
+    this.lastUpdated = '',
   });
 
   final int id;
@@ -154,8 +156,21 @@ class BookDetailModel {
   final String coverPath;
   final List<String> tags;
   final int? authorUserId;
+  /// Free-text content warnings, e.g. "child abuse, drug use overdose".
+  final String contentWarnings;
+  final String lastUpdated;
 
   factory BookDetailModel.fromMap(Map<String, dynamic> map) {
+    final warningsRaw = map['content_warnings'] ??
+        map['content_warning'] ??
+        map['warnings'] ??
+        '';
+    String warnings = '';
+    if (warningsRaw is List) {
+      warnings = warningsRaw.map((e) => e.toString()).where((e) => e.isNotEmpty).join(', ');
+    } else {
+      warnings = warningsRaw.toString();
+    }
     return BookDetailModel(
       id: (map['id'] as num?)?.toInt() ?? 0,
       title: map['title'] as String? ?? 'Untitled',
@@ -163,12 +178,14 @@ class BookDetailModel {
       description: map['description'] as String? ?? '',
       statusText: map['status_text'] as String? ?? '',
       rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
-      genre: map['genre'] as String? ?? '',
+      genre: map['genre'] as String? ?? map['primary_genre'] as String? ?? '',
       cta: map['cta'] as String? ?? map['cta_label'] as String? ?? 'Read now',
       coverPath: map['cover_path'] as String? ?? '',
       tags: List<String>.from(map['tags'] as List<dynamic>? ?? <dynamic>[]),
       authorUserId: (map['author_user_id'] as num?)?.toInt() ??
           (map['user_id'] as num?)?.toInt(),
+      contentWarnings: warnings,
+      lastUpdated: (map['last_updated'] ?? map['updated_at'] ?? map['updated_text'] ?? '').toString(),
     );
   }
 }

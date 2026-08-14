@@ -727,13 +727,19 @@ class _ProfileScreenState extends State<ProfileScreen>
                 final list = lists[i];
                 final name = _s(list['name'] ?? list['title']);
                 final count = _asInt(list['story_count'] ?? list['count']);
-                // Prefer first of covers[] collage, else cover_path — single cover slider
-                String cover = '';
+                // Multi-cover collage (Inkitt-style stacked book covers)
+                final List<String> coverList = [];
                 final dynamic rawCovers = list['covers'];
-                if (rawCovers is List && rawCovers.isNotEmpty) {
-                  cover = _s(rawCovers.first);
+                if (rawCovers is List) {
+                  for (final c in rawCovers) {
+                    final s = _s(c);
+                    if (s.isNotEmpty) coverList.add(s);
+                  }
                 }
-                if (cover.isEmpty) cover = _s(list['cover_path']);
+                if (coverList.isEmpty) {
+                  final single = _s(list['cover_path'] ?? list['cover_url']);
+                  if (single.isNotEmpty) coverList.add(single);
+                }
                 final listId = _asInt(list['id']);
                 return GestureDetector(
                   onTap: listId > 0
@@ -861,19 +867,15 @@ class _ProfileScreenState extends State<ProfileScreen>
                       Expanded(
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: cover.isNotEmpty
-                              ? Image.network(
-                                  widget.apiService.resolveAssetUrl(cover),
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Container(
-                                    color: cardBg,
-                                    child: const Icon(Icons.collections_bookmark_outlined, color: muted),
-                                  ),
-                                )
-                              : Container(
+                          child: coverList.isEmpty
+                              ? Container(
                                   color: cardBg,
                                   child: const Icon(Icons.collections_bookmark_outlined, color: muted),
+                                )
+                              : _ReadingListCollage(
+                                  covers: coverList
+                                      .map((c) => widget.apiService.resolveAssetUrl(c))
+                                      .toList(),
                                 ),
                         ),
                       ),
@@ -1634,4 +1636,66 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant _TabBarDelegate oldDelegate) => false;
+}
+
+
+/// Inkitt-style multi-cover collage for reading list cards (2x2 grid of covers).
+class _ReadingListCollage extends StatelessWidget {
+  const _ReadingListCollage({required this.covers});
+
+  final List<String> covers;
+
+  @override
+  Widget build(BuildContext context) {
+    final urls = covers.take(4).toList();
+    if (urls.length == 1) {
+      return Image.network(
+        urls.first,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, __, ___) => Container(color: const Color(0xFFF1F5F9)),
+      );
+    }
+    // 2x2 grid
+    while (urls.length < 4) {
+      urls.add('');
+    }
+    return Column(
+      children: [
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(child: _cell(urls[0])),
+              const SizedBox(width: 2),
+              Expanded(child: _cell(urls[1])),
+            ],
+          ),
+        ),
+        const SizedBox(height: 2),
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(child: _cell(urls[2])),
+              const SizedBox(width: 2),
+              Expanded(child: _cell(urls[3])),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _cell(String url) {
+    if (url.isEmpty) {
+      return Container(color: const Color(0xFFE8EEF5));
+    }
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (_, __, ___) => Container(color: const Color(0xFFE8EEF5)),
+    );
+  }
 }

@@ -523,8 +523,14 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                   children: [
                     _statCell('Chapters', '${_chapters.length}'),
                     _statCell(
-                      'Story Status',
-                      _book.statusText.isNotEmpty ? _book.statusText : 'Ongoing',
+                      _book.lastUpdated.trim().isNotEmpty
+                          ? 'Last Updated'
+                          : 'Story Status',
+                      _book.lastUpdated.trim().isNotEmpty
+                          ? _book.lastUpdated.trim()
+                          : (_book.statusText.isNotEmpty
+                              ? _book.statusText
+                              : 'Ongoing'),
                     ),
                     _statCell(
                       'Reviews',
@@ -671,7 +677,37 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             ),
           ),
 
-          // Genres
+          // Content Warnings (Inkitt-style — shown when present)
+          if (_book.contentWarnings.trim().isNotEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Content Warnings',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _book.contentWarnings.trim().toLowerCase().startsWith('this story')
+                          ? _book.contentWarnings.trim()
+                          : 'This story contains themes of: ${_book.contentWarnings.trim()}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.4,
+                        color: Colors.grey.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Genres — chips keep hierarchical "Parent > Child" when present
           if (_book.genre.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
@@ -689,18 +725,38 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: _book.genre
-                          .split(RegExp(r'[,/>|]'))
-                          .map((g) => g.trim())
-                          .where((g) => g.isNotEmpty)
-                          .map(
-                            (g) => Chip(
-                              label: Text(g),
-                              visualDensity: VisualDensity.compact,
-                              backgroundColor: Colors.grey.shade100,
-                            ),
-                          )
-                          .toList(),
+                      children: () {
+                        final raw = _book.genre.trim();
+                        // Support both "Romance > Dark, Fantasy > Dark" and plain lists
+                        final parts = raw
+                            .split(RegExp(r'[,|]'))
+                            .map((g) => g.trim())
+                            .where((g) => g.isNotEmpty)
+                            .toList();
+                        if (parts.isEmpty) return <Widget>[];
+                        return parts
+                            .map(
+                              (g) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: Text(
+                                  g,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList();
+                      }(),
                     ),
                   ],
                 ),
